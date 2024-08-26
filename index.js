@@ -58,10 +58,10 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
 
         await client.connect();
-        const userCollection = client.db('doctorDB').collection('users');
-        const doctorCollection = client.db('doctorDB').collection('allDoctor');
-        const appointmentCollection = client.db('doctorDB').collection('appointmentDoctor');
-        const paymentsCollection = client.db('doctorDB').collection('payments');
+        const userCollection = client.db('bloodDonationDB').collection('users');
+        const donorCollection = client.db('bloodDonationDB').collection('allDonor');
+        const appointmentCollection = client.db('bloodDonationDB').collection('appointmentDoctor');
+        const paymentsCollection = client.db('bloodDonationDB').collection('payments');
 
         // admin related 
         const verifyToken = (req, res, next) => {
@@ -86,6 +86,19 @@ async function run() {
             const user = await userCollection.findOne(query);
             const isAdmin = user?.role === 'admin';
             if (!isAdmin) {
+                return res.status(403).send({ message: 'forbidden access' });
+
+            }
+            next();
+        }
+
+        // verify Volunteer
+        const verifyVolunteer = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email };
+            const user = await userCollection.findOne(query);
+            const isVolunteer = user?.role === 'volunteer';
+            if (!isVolunteer) {
                 return res.status(403).send({ message: 'forbidden access' });
 
             }
@@ -135,6 +148,23 @@ async function run() {
 
         })
 
+        // make Volunteer
+        // app.patch('/user/volunteer/:id', verifyToken, verifyVolunteer, async (req, res) => {
+        //     const id = req.params.id;
+        //     const query = { _id: new ObjectId(id) };
+        //     const updatedDoc = {
+        //         $set: {
+        //             role: 'volunteer'
+        //         }
+
+        //     }
+        //     const updateCount = await userCollection.updateOne(query, updatedDoc);
+        //     res.send(updateCount);
+
+        // })
+
+
+
         // user delete 
         app.delete('/user/:id', verifyToken, verifyAdmin, async (req, res) => {
             try {
@@ -160,6 +190,22 @@ async function run() {
                 admin = result?.role === 'admin';
             }
             res.send({ admin });
+        })
+
+
+         // volunteer check
+         app.get('/user/volunteer/:email', verifyToken, async (req, res) => {
+            const email = req.params.email;
+            if (email !== req.decoded.email) {
+                return res.status(403).send({ message: 'unauthorized access' })
+            }
+            const query = { email: email }
+            const result = await userCollection.findOne(query);
+            let volunteer = false;
+            if (result) {
+                volunteer = result?.role === 'volunteer';
+            }
+            res.send({ volunteer });
         })
 
 
@@ -195,9 +241,9 @@ async function run() {
 
 
         // new last 3 data
-        app.get('/allDoctor', async (req, res) => {
+        app.get('/allDonor', async (req, res) => {
             try {
-                const result = await doctorCollection.find().toArray();
+                const result = await donorCollection.find().toArray();
                 // console.log("Result:", result); // Debugging
                 res.send(result);
             } catch (error) {
@@ -207,9 +253,9 @@ async function run() {
         });
 
         // one doctor loaded
-        app.get('/allDoctor/:id', async (req, res) => {
+        app.get('/allDonor/:id', async (req, res) => {
             try {
-                const result = await doctorCollection.findOne({ _id: new ObjectId(req.params.id) });
+                const result = await donorCollection.findOne({ _id: new ObjectId(req.params.id) });
                 // console.log("Result:", result); // Debugging
                 res.send(result);
             } catch (error) {
@@ -218,10 +264,10 @@ async function run() {
             }
         });
         // doctor add
-        app.post('/allDoctor', verifyToken, verifyAdmin, async (req, res) => {
+        app.post('/allDonor', verifyToken, async (req, res) => {
             try {
                 const doctorInfo = req.body;
-                const result = await doctorCollection.insertOne(doctorInfo);
+                const result = await donorCollection.insertOne(doctorInfo);
                 res.send(result);
             } catch (error) {
                 console.error(error);
@@ -230,7 +276,7 @@ async function run() {
 
         })
         // update doctor
-        app.patch('/allDoctor/:id', verifyToken, verifyAdmin, async (req, res) => {
+        app.patch('/allDonor/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const doctorInfo = req.body;
             const query = { _id: new ObjectId(id) };
@@ -246,17 +292,17 @@ async function run() {
                 }
 
             }
-            const updateCount = await doctorCollection.updateOne(query, updatedDoc);
+            const updateCount = await donorCollection.updateOne(query, updatedDoc);
             res.send(updateCount);
 
         })
 
         // doctor delete 
-        app.delete('/allDoctor/:id', verifyToken, verifyAdmin, async (req, res) => {
+        app.delete('/allDonor/:id', verifyToken, async (req, res) => {
             try {
                 const id = req.params.id;
                 const query = { _id: new ObjectId(id) }
-                const result = await doctorCollection.deleteOne(query);
+                const result = await donorCollection.deleteOne(query);
                 res.send(result);
             } catch (error) {
                 console.error(error);
